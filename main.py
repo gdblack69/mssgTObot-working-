@@ -8,7 +8,7 @@ from threading import Thread
 # API credentials for source chat
 SOURCE_API_ID = os.getenv('SOURCE_API_ID')
 SOURCE_API_HASH = os.getenv('SOURCE_API_HASH')
-SOURCE_CHAT_ID = os.getenv('SOURCE_CHAT_ID')
+SOURCE_CHAT_ID = -1002256615512 # Replace with the chat ID to listen to
 SOURCE_PHONE_NUMBER = os.getenv('SOURCE_PHONE_NUMBER')  # Source phone number
 
 # API credentials for destination account
