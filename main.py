@@ -3,6 +3,7 @@ from flask import Flask, request, jsonify
 from telethon import TelegramClient, events
 import os
 import traceback
+import threading
 
 # Flask App Initialization
 app = Flask(__name__)
@@ -161,9 +162,16 @@ async def start_clients():
     )
 
 
-# Main Function with Correct Port Binding
+# Function to run Telegram clients in a separate thread
+def run_telegram_clients():
+    asyncio.run(start_clients())
+
+# Main Function with Flask and Telegram Integration
 if __name__ == "__main__":
+    # Run Telegram clients in a separate thread
+    telegram_thread = threading.Thread(target=run_telegram_clients)
+    telegram_thread.start()
+
+    # Start Flask app
     port = int(os.getenv("PORT", 5000))  # Use the PORT variable provided by Render
-    loop = asyncio.get_event_loop()
-    loop.create_task(start_clients())
     app.run(host="0.0.0.0", port=port)
