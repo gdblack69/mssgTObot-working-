@@ -1,7 +1,7 @@
 import asyncio
 import os
-from keep_alive import keep_alive  # Flask app to keep the bot alive
 from telethon import TelegramClient, events
+from keep_alive import keep_alive  # Import Flask app to keep the bot alive
 
 # API credentials from environment variables
 source_api_id = int(os.getenv('SOURCE_API_ID'))  # Replace with your first API ID
