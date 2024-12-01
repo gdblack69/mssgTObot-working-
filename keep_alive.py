@@ -1,17 +1,12 @@
 from flask import Flask
 import os
-import threading
 
 app = Flask(__name__)
 
-@app.route('/')
+@app.route("/")
 def home():
-    return "Bot is running..."
+    return "Flask server is running!"
 
-def run():
-    app.run(host='0.0.0.0', port=int(os.getenv("PORT", 5000)))
-
-def keep_alive():
-    # Start Flask app in a separate thread to avoid blocking the main process
-    t = threading.Thread(target=run)
-    t.start()
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))  # Default to port 5000 if PORT is not set
+    app.run(host="0.0.0.0", port=port)
