@@ -1,95 +1,73 @@
-import os
+from telethon import TelegramClient
+from flask import Flask, request, jsonify
 import asyncio
-from telethon import TelegramClient, events
-from flask import Flask, request
-from keep_alive import keep_alive  # Flask app to keep the bot alive
+import os
+import time
 
-# Flask app to handle API requests
+# Setup Flask app
 app = Flask(__name__)
 
-# Initialize Telegram clients
-source_client = None
-destination_client = None
-
-# Variables to store credentials and phone number/OTP
+# Environment Variables for API credentials and session files
 source_api_id = os.getenv("SOURCE_API_ID")
 source_api_hash = os.getenv("SOURCE_API_HASH")
-source_session_file = "source_session"
-destination_api_id = os.getenv("DESTINATION_API_ID")
-destination_api_hash = os.getenv("DESTINATION_API_HASH")
-destination_session_file = "destination_session"
+destination_api_id = os.getenv("DEST_API_ID")
+destination_api_hash = os.getenv("DEST_API_HASH")
 
-phone_number_source = None
-phone_number_destination = None
-otp_source = None
-otp_destination = None
+source_session_file = "source_session.session"
+destination_session_file = "destination_session.session"
 
-# Step 1: API to enter phone number for source account
+# Flask Routes for receiving phone numbers and OTPs
 @app.route('/enter_phone_source', methods=['POST'])
 def enter_phone_source():
-    global phone_number_source
     phone_number_source = request.json.get("phone_number")
-    return {"message": "Phone number for source account received. Please check your Telegram for OTP."}, 200
+    if not phone_number_source:
+        return jsonify({"error": "Phone number is required"}), 400
+    global phone_number_source_global
+    phone_number_source_global = phone_number_source
+    return jsonify({"message": "Phone number received, please send OTP"}), 200
 
-# Step 2: API to enter OTP for source account
+
 @app.route('/enter_otp_source', methods=['POST'])
 def enter_otp_source():
-    global otp_source
     otp_source = request.json.get("otp")
-    return {"message": "OTP for source account received."}, 200
+    if not otp_source:
+        return jsonify({"error": "OTP is required"}), 400
+    global otp_source_global
+    otp_source_global = otp_source
+    return jsonify({"message": "OTP received, logging in..."}), 200
 
-# Step 3: API to enter phone number for destination account
-@app.route('/enter_phone_destination', methods=['POST'])
-def enter_phone_destination():
-    global phone_number_destination
-    phone_number_destination = request.json.get("phone_number")
-    return {"message": "Phone number for destination account received. Please check your Telegram for OTP."}, 200
 
-# Step 4: API to enter OTP for destination account
-@app.route('/enter_otp_destination', methods=['POST'])
-def enter_otp_destination():
-    global otp_destination
-    otp_destination = request.json.get("otp")
-    return {"message": "OTP for destination account received."}, 200
-
-# Function to start source client
+# Run Telegram Clients and Flask
 async def start_source_client():
-    global source_client
     source_client = TelegramClient(source_session_file, source_api_id, source_api_hash)
-    await source_client.start(phone=phone_number_source, code=otp_source)
-    print("Source client started.")
 
-# Function to start destination client
-async def start_destination_client():
-    global destination_client
-    destination_client = TelegramClient(destination_session_file, destination_api_id, destination_api_hash)
-    await destination_client.start(phone=phone_number_destination, code=otp_destination)
-    print("Destination client started.")
+    # Send code request to get the OTP
+    await source_client.send_code_request(phone_number_source_global)
 
-# Function to forward message
-async def forward_message(event):
-    if '"' in event.raw_text:
-        source_id_message = event.raw_text
-        custom_message = f"""
-        "{source_id_message}"
-        """
-        try:
-            await destination_client.send_message("@destination_bot", custom_message)
-            print("Custom message forwarded to destination bot.")
-        except Exception as e:
-            print(f"Error while forwarding the message: {e}")
+    # Sign in using the OTP
+    try:
+        await source_client.sign_in(phone_number_source_global, otp_source_global)
+    except Exception as e:
+        print(f"Error during source client sign-in: {e}")
+    
+    print("Source client logged in.")
+    await source_client.start()
 
-# Function to start the main clients
+
+# Start the Flask app and Telegram clients together
 async def start_clients():
+    # Start Flask server
+    from threading import Thread
+    def run_flask():
+        app.run(host="0.0.0.0", port=10000)
+    flask_thread = Thread(target=run_flask)
+    flask_thread.start()
+
+    # Wait before starting Telegram client
+    await asyncio.sleep(2)
+    # Start the Telegram source client
     await start_source_client()
-    await start_destination_client()
 
-    @source_client.on(events.NewMessage())
-    async def handle_new_message(event):
-        await forward_message(event)
-
-    await source_client.run_until_disconnected()
 
 if __name__ == "__main__":
-    keep_alive()  # Keep Flask alive
-    asyncio.run(start_clients())  # Run Telegram clients and Flask together
+    asyncio.run(start_clients())
