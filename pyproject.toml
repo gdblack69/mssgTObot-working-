@@ -1,18 +1,17 @@
 [tool.poetry]
-name = "Mssgtobot"
+name = "my-bot"
 version = "0.1.0"
-description = "A brief description of your project"
-authors = ["Your Name <your.email@example.com>"]
-license = "MIT"
+description = "A Telegram bot"
+authors = ["Your Name <you@example.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.9.1"
-Flask = "^2.0.3"
-Werkzeug = "2.0.3"
+python = "^3.12"
 telethon = "1.24.0"
-python-telegram-bot = "*"
-requests = "*"
-aiohttp = { version = "3.9.0", extras = ["no_pep517"] }
+python-telegram-bot = "20.0"
+requests = "2.31.0"
+python-dotenv = "1.0.0"
+Flask = "^2.3.0"
 
-[tool.poetry.dev-dependencies]
-# Add any development dependencies here if needed
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
