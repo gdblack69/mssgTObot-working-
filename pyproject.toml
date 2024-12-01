@@ -1,4 +1,4 @@
-[tool.poetry]
+gib[tool.poetry]
 name = "my-bot"
 version = "0.1.0"
 description = "A Telegram bot"
