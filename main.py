@@ -149,15 +149,9 @@ async def start_clients():
     )
 
 
-# Flask Runner
-def run_flask():
-    app.run(host="0.0.0.0", port=10000)
-
-
-# Main Function
+# Main Function with Correct Port Binding
 if __name__ == "__main__":
+    port = int(os.getenv("PORT", 5000))  # Use the PORT variable provided by Render
     loop = asyncio.get_event_loop()
     loop.create_task(start_clients())
-
-    # Start Flask App
-    run_flask()
+    app.run(host="0.0.0.0", port=port)
