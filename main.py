@@ -1,71 +1,77 @@
+import os
 import asyncio
 from telethon import TelegramClient
-import os
+from telethon.errors import ConnectionError
 
-# Function to check or create session files
-def get_session_file(env_var, default_name):
-    session_file = os.getenv(env_var)
-    if not session_file:
-        print(f"{env_var} not set. Creating a new session file: {default_name}")
-        return default_name
-    return session_file
+# Load API credentials from environment variables
+API_ID = os.getenv("API_ID")
+API_HASH = os.getenv("API_HASH")
 
-# Telegram Credentials from Environment Variables
-source_api_id = int(os.getenv("SOURCE_API_ID", 0))
-source_api_hash = os.getenv("SOURCE_API_HASH", "")
-source_session_file = get_session_file("SOURCE_SESSION_FILE", "source_session")
-source_phone_number = os.getenv("SOURCE_PHONE_NUMBER")
-source_otp = os.getenv("SOURCE_OTP")
+# Set session file paths
+source_session_file = os.getenv("SOURCE_SESSION_FILE", "source_session")
+destination_session_file = os.getenv("DEST_SESSION_FILE", "destination_session")
 
-dest_api_id = int(os.getenv("DEST_API_ID", 0))
-dest_api_hash = os.getenv("DEST_API_HASH", "")
-dest_session_file = get_session_file("DEST_SESSION_FILE", "destination_session")
-dest_phone_number = os.getenv("DEST_PHONE_NUMBER")
-dest_otp = os.getenv("DEST_OTP")
+# Proxy configuration (optional, replace with valid proxy details if needed)
+PROXY = None  # Example: ('socks5', 'proxy_host', proxy_port)
 
-# Initialize Telegram Clients
-source_client = TelegramClient(source_session_file, source_api_id, source_api_hash)
-destination_client = TelegramClient(dest_session_file, dest_api_id, dest_api_hash)
+# Ensure required environment variables are set
+if not API_ID or not API_HASH:
+    raise ValueError("API_ID and API_HASH must be set as environment variables.")
 
-# Telegram Client Initialization and Verification
+async def safe_connect(client):
+    """Attempt to connect to Telegram with retries."""
+    retries = 3
+    for attempt in range(retries):
+        try:
+            await client.connect()
+            if client.is_connected():
+                print(f"Connected successfully with session: {client.session.filename}")
+                return True
+        except ConnectionError:
+            print(f"Connection attempt {attempt + 1} failed. Retrying...")
+            await asyncio.sleep(2)
+    raise ConnectionError("Unable to connect to Telegram after retries.")
+
 async def setup_source_client():
-    if not source_phone_number:
-        raise ValueError("SOURCE_PHONE_NUMBER environment variable is not set.")
+    """Set up and authenticate the source client."""
+    async with TelegramClient(source_session_file, API_ID, API_HASH, proxy=PROXY) as source_client:
+        await safe_connect(source_client)
+        if not await source_client.is_user_authorized():
+            source_phone_number = os.getenv("SOURCE_PHONE_NUMBER")
+            if not source_phone_number:
+                raise ValueError("SOURCE_PHONE_NUMBER environment variable is not set.")
+            
+            print(f"Sending OTP to source phone number: {source_phone_number}")
+            await source_client.send_code_request(source_phone_number)
+            source_otp = os.getenv("SOURCE_OTP")
+            if not source_otp:
+                raise ValueError("SOURCE_OTP environment variable is not set.")
+            await source_client.sign_in(source_phone_number, source_otp)
+        return source_client
 
-    print(f"Sending OTP to source phone number: {source_phone_number}")
-    await source_client.send_code_request(source_phone_number)
-
-    if not source_otp:
-        raise ValueError("SOURCE_OTP environment variable is not set.")
-
-    print("Logging in source account...")
-    await source_client.sign_in(source_phone_number, source_otp)
-    print("Source client logged in successfully!")
-    await source_client.start()
-
-
-async def setup_dest_client():
-    if not dest_phone_number:
-        raise ValueError("DEST_PHONE_NUMBER environment variable is not set.")
-
-    print(f"Sending OTP to destination phone number: {dest_phone_number}")
-    await destination_client.send_code_request(dest_phone_number)
-
-    if not dest_otp:
-        raise ValueError("DEST_OTP environment variable is not set.")
-
-    print("Logging in destination account...")
-    await destination_client.sign_in(dest_phone_number, dest_otp)
-    print("Destination client logged in successfully!")
-    await destination_client.start()
-
+async def setup_destination_client():
+    """Set up and authenticate the destination client."""
+    async with TelegramClient(destination_session_file, API_ID, API_HASH, proxy=PROXY) as destination_client:
+        await safe_connect(destination_client)
+        if not await destination_client.is_user_authorized():
+            destination_phone_number = os.getenv("DEST_PHONE_NUMBER")
+            if not destination_phone_number:
+                raise ValueError("DEST_PHONE_NUMBER environment variable is not set.")
+            
+            print(f"Sending OTP to destination phone number: {destination_phone_number}")
+            await destination_client.send_code_request(destination_phone_number)
+            destination_otp = os.getenv("DEST_OTP")
+            if not destination_otp:
+                raise ValueError("DEST_OTP environment variable is not set.")
+            await destination_client.sign_in(destination_phone_number, destination_otp)
+        return destination_client
 
 async def main():
+    """Main function to handle both clients."""
     await asyncio.gather(
         setup_source_client(),
-        setup_dest_client()
+        setup_destination_client()
     )
-
 
 if __name__ == "__main__":
     asyncio.run(main())
