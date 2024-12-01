@@ -29,7 +29,7 @@ async def setup_client(session_file, api_id, api_hash, phone_number):
     """
     Sets up the Telegram client. Sends an OTP if the session is not already authorized.
     """
-    client = TelegramClient(session_file, api_id, api_hash)
+    client = TelegramClient(session_file, api_id, api_hash, device_model="Windows", system_version="10")
     try:
         await client.connect()
         if not await client.is_user_authorized():
