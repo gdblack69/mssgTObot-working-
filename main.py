@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 import asyncio
+import os
 from telethon.sync import TelegramClient
 from telethon.errors import RPCError
 
@@ -15,13 +16,24 @@ API_HASH_DEST = "edbecdc187df07fddb10bcff89964a8e"  # Replace with your actual A
 SOURCE_PHONE_NUMBER = "918400477507"  # Replace with your source phone number
 DEST_PHONE_NUMBER = "917897293175"  # Replace with your destination phone number
 
-# Sessions files for Telethon
+# Sessions files for Telethon (used for file-based storage; won't be used with memory=True)
 SOURCE_SESSION_FILE = "source_session"
 DEST_SESSION_FILE = "destination_session"
 
-# Telethon clients for source and destination
-source_client = TelegramClient(SOURCE_SESSION_FILE, API_ID_SOURCE, API_HASH_SOURCE)
-destination_client = TelegramClient(DEST_SESSION_FILE, API_ID_DEST, API_HASH_DEST)
+# Function to create a new session if it doesn't exist
+def create_session_if_not_exists(session_file):
+    if not os.path.exists(session_file):
+        print(f"Session file {session_file} not found. Creating a new session.")
+        with open(session_file, "w") as f:
+            f.write("")  # Create an empty session file
+
+# Ensure the session files exist
+create_session_if_not_exists(SOURCE_SESSION_FILE)
+create_session_if_not_exists(DEST_SESSION_FILE)
+
+# Telethon clients for source and destination (with memory=True to avoid SQLite locking)
+source_client = TelegramClient(SOURCE_SESSION_FILE, API_ID_SOURCE, API_HASH_SOURCE, memory=True)
+destination_client = TelegramClient(DEST_SESSION_FILE, API_ID_DEST, API_HASH_DEST, memory=True)
 
 @app.route('/send-otp', methods=['POST'])
 def send_otp():
