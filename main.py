@@ -5,19 +5,23 @@ from telethon.errors import RPCError
 
 app = Flask(__name__)
 
-# Replace these with your actual Telegram API credentials
-API_ID = "your_api_id"
-API_HASH = "your_api_hash"
-SOURCE_PHONE_NUMBER = "source_phone_number"  # Replace with your source phone number
-DEST_PHONE_NUMBER = "destination_phone_number"  # Replace with your destination phone number
+# Replace these with your actual Telegram API credentials for two accounts
+API_ID_SOURCE = 26697231  # Replace with your actual API ID for source account (integer)
+API_HASH_SOURCE = "35f2769c773534c6ebf24c9d0731703a"  # Replace with your actual API Hash for source account (string)
+
+API_ID_DEST = 14135677  # Replace with your actual API ID for destination account (integer)
+API_HASH_DEST = "edbecdc187df07fddb10bcff89964a8e"  # Replace with your actual API Hash for destination account (string)
+
+SOURCE_PHONE_NUMBER = "918400477507"  # Replace with your source phone number
+DEST_PHONE_NUMBER = "917897293175"  # Replace with your destination phone number
 
 # Sessions files for Telethon
 SOURCE_SESSION_FILE = "source_session"
 DEST_SESSION_FILE = "destination_session"
 
 # Telethon clients for source and destination
-source_client = TelegramClient(SOURCE_SESSION_FILE, API_ID, API_HASH)
-destination_client = TelegramClient(DEST_SESSION_FILE, API_ID, API_HASH)
+source_client = TelegramClient(SOURCE_SESSION_FILE, API_ID_SOURCE, API_HASH_SOURCE)
+destination_client = TelegramClient(DEST_SESSION_FILE, API_ID_DEST, API_HASH_DEST)
 
 @app.route('/send-otp', methods=['POST'])
 def send_otp():
