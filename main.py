@@ -13,16 +13,28 @@ otp_source_global = None
 phone_number_dest_global = None
 otp_dest_global = None
 
-# Telegram Credentials from Environment Variables
-source_api_id = int(os.getenv("SOURCE_API_ID"))
-source_api_hash = os.getenv("SOURCE_API_HASH")
-source_session_file = os.getenv("SOURCE_SESSION_FILE")
-source_chat_id = int(os.getenv("SOURCE_CHAT_ID"))
+# Function to check or create session files
+def get_session_file(env_var, default_name):
+    session_file = os.getenv(env_var)
+    if not session_file:
+        print(f"{env_var} not set. Creating a new session file: {default_name}")
+        return default_name
+    return session_file
 
-dest_api_id = int(os.getenv("DEST_API_ID"))
-dest_api_hash = os.getenv("DEST_API_HASH")
-dest_session_file = os.getenv("DEST_SESSION_FILE")
-destination_bot_username = os.getenv("DEST_BOT_USERNAME")
+# Telegram Credentials from Environment Variables
+source_api_id = int(os.getenv("SOURCE_API_ID", 0))  # Default to 0 to handle missing variables
+source_api_hash = os.getenv("SOURCE_API_HASH", "")
+source_session_file = get_session_file("SOURCE_SESSION_FILE", "source_session")
+
+dest_api_id = int(os.getenv("DEST_API_ID", 0))
+dest_api_hash = os.getenv("DEST_API_HASH", "")
+dest_session_file = get_session_file("DEST_SESSION_FILE", "destination_session")
+
+source_chat_id = os.getenv("SOURCE_CHAT_ID")
+if source_chat_id:
+    source_chat_id = int(source_chat_id)
+
+destination_bot_username = os.getenv("DEST_BOT_USERNAME", "")
 
 # Initialize Telegram Clients
 source_client = TelegramClient(source_session_file, source_api_id, source_api_hash)
