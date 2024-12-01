@@ -17,21 +17,15 @@ DESTINATION_API_HASH = os.getenv('DESTINATION_API_HASH')
 DESTINATION_BOT_USERNAME = os.getenv('DESTINATION_BOT_USERNAME')
 DESTINATION_PHONE_NUMBER = os.getenv('DESTINATION_PHONE_NUMBER')  # Destination phone number
 
-# Paths for session files
-SOURCE_SESSION_FILE = os.getenv('SOURCE_SESSION_FILE')
-DESTINATION_SESSION_FILE = os.getenv('DESTINATION_SESSION_FILE')
+# Paths for session files (use a fallback if environment variables are not set)
+SOURCE_SESSION_FILE = os.getenv('SOURCE_SESSION_FILE', 'source_session.session')  # Default fallback value
+DESTINATION_SESSION_FILE = os.getenv('DESTINATION_SESSION_FILE', 'destination_session.session')  # Default fallback value
 
 # OTP storage
 otp_data = {
     'source': None,
     'destination': None
 }
-
-# Ensure session files are present
-if not os.path.exists(SOURCE_SESSION_FILE):
-    print("Source session file not found. Creating a new session...")
-if not os.path.exists(DESTINATION_SESSION_FILE):
-    print("Destination session file not found. Creating a new session...")
 
 # Initialize Telegram clients
 source_client = TelegramClient(SOURCE_SESSION_FILE, SOURCE_API_ID, SOURCE_API_HASH)
