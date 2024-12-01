@@ -1,15 +1,14 @@
-gib[tool.poetry]
+[tool.poetry]
 name = "my-bot"
 version = "0.1.0"
 description = "A Telegram bot"
 authors = ["Your Name <you@example.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.12."
+python = "^3.12.7"
 telethon = "1.24.0"
 python-telegram-bot = "20.0"
 requests = "2.31.0"
-python-dotenv = "1.0.0"
 Flask = "^2.3.0"
 
 [build-system]
