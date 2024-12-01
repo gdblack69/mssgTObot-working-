@@ -64,6 +64,9 @@ async def login_with_phone(client, phone_number, account_type):
         print(f"Logging in with phone number: {phone_number}")
         await client.send_code_request(phone_number)
         
+        # Indicate when to enter OTP
+        print(f"Enter OTP for {account_type} account:")
+        
         # Wait for OTP to be received via Postman
         while otp_data.get(account_type) is None:
             await asyncio.sleep(1)  # Wait for the OTP to be posted
@@ -71,6 +74,7 @@ async def login_with_phone(client, phone_number, account_type):
         otp = otp_data.get(account_type)
         if otp:
             await client.sign_in(phone_number, otp)
+            print(f"Logged in successfully for {account_type}!")
         else:
             print(f"Failed to receive OTP for {account_type}.")
             raise Exception(f"OTP not received for {account_type}")
