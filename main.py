@@ -1,58 +1,55 @@
-import os
+from flask import Flask, request, jsonify
 import asyncio
-from telethon import TelegramClient
+from telethon.sync import TelegramClient
+from telethon.errors import RPCError
 
-# Validate environment variables
-def validate_env_variables():
-    required_env_vars = ['SOURCE_API_ID', 'SOURCE_API_HASH', 'DEST_API_ID', 'DEST_API_HASH', 'SOURCE_PHONE_NUMBER', 'DEST_PHONE_NUMBER']
-    for var in required_env_vars:
-        if not os.getenv(var):
-            raise EnvironmentError(f"Missing required environment variable: {var}")
+app = Flask(__name__)
 
-validate_env_variables()
+# Replace these with your actual Telegram API credentials
+API_ID = "your_api_id"
+API_HASH = "your_api_hash"
+SOURCE_PHONE_NUMBER = "source_phone_number"  # Replace with your source phone number
+DEST_PHONE_NUMBER = "destination_phone_number"  # Replace with your destination phone number
 
-# API credentials for source and destination accounts
-SOURCE_API_ID = int(os.getenv('SOURCE_API_ID'))
-SOURCE_API_HASH = os.getenv('SOURCE_API_HASH')
-DEST_API_ID = int(os.getenv('DEST_API_ID'))
-DEST_API_HASH = os.getenv('DEST_API_HASH')
+# Sessions files for Telethon
+SOURCE_SESSION_FILE = "source_session"
+DEST_SESSION_FILE = "destination_session"
 
-# Session file names
-SOURCE_SESSION_FILE = os.getenv('SOURCE_SESSION_FILE', 'source_session')
-DEST_SESSION_FILE = os.getenv('DEST_SESSION_FILE', 'destination_session')
+# Telethon clients for source and destination
+source_client = TelegramClient(SOURCE_SESSION_FILE, API_ID, API_HASH)
+destination_client = TelegramClient(DEST_SESSION_FILE, API_ID, API_HASH)
 
-# Phone numbers for authentication
-SOURCE_PHONE_NUMBER = os.getenv('SOURCE_PHONE_NUMBER')
-DEST_PHONE_NUMBER = os.getenv('DEST_PHONE_NUMBER')
+@app.route('/send-otp', methods=['POST'])
+def send_otp():
+    data = request.get_json()
+    phone_number = data.get('phone_number')
+    
+    if not phone_number:
+        return jsonify({"error": "Phone number is required"}), 400
 
-async def setup_client(session_file, api_id, api_hash, phone_number):
-    """
-    Sets up the Telegram client. Sends an OTP if the session is not already authorized.
-    """
-    client = TelegramClient(session_file, api_id, api_hash, device_model="Windows", system_version="10")
     try:
-        await client.connect()
-        if not await client.is_user_authorized():
-            print(f"Sending OTP to phone number: {phone_number}")
-            await client.send_code_request(phone_number)
-            otp = input(f"Enter OTP for {phone_number}: ").strip()
-            await client.sign_in(phone_number, otp)
-            print(f"Logged in successfully for phone number: {phone_number}")
+        if phone_number == SOURCE_PHONE_NUMBER:
+            asyncio.run(send_otp_to_source())
+        elif phone_number == DEST_PHONE_NUMBER:
+            asyncio.run(send_otp_to_destination())
         else:
-            print(f"Client already authorized for phone number: {phone_number}")
-    except Exception as e:
-        print(f"Error during setup for {phone_number}: {e}")
-    return client
+            return jsonify({"error": "Invalid phone number"}), 400
+        
+        return jsonify({"message": "OTP sent successfully"}), 200
 
-async def main():
-    """
-    Main function to set up source and destination clients.
-    """
-    source_client = await setup_client(SOURCE_SESSION_FILE, SOURCE_API_ID, SOURCE_API_HASH, SOURCE_PHONE_NUMBER)
-    dest_client = await setup_client(DEST_SESSION_FILE, DEST_API_ID, DEST_API_HASH, DEST_PHONE_NUMBER)
+    except RPCError as e:
+        return jsonify({"error": f"Failed to send OTP: {str(e)}"}), 500
 
-    print("Both clients are connected and ready!")
-    # Add your main functionality here
+async def send_otp_to_source():
+    print(f"Sending OTP to source phone number: {SOURCE_PHONE_NUMBER}")
+    await source_client.connect()
+    await source_client.send_code_request(SOURCE_PHONE_NUMBER)
 
-if __name__ == '__main__':
-    asyncio.run(main())
+async def send_otp_to_destination():
+    print(f"Sending OTP to destination phone number: {DEST_PHONE_NUMBER}")
+    await destination_client.connect()
+    await destination_client.send_code_request(DEST_PHONE_NUMBER)
+
+# Start the Flask server
+if __name__ == "__main__":
+    app.run(debug=True)
