@@ -89,7 +89,7 @@ async def forward_message(event):
     custom_message = f"""
 "{source_id_message}"
 
- If the quoted text within double quotation mark is not a trading signal, respond with "Processing your question....". If it is a trading signal, extract the necessary information and fill out the form below. The symbol should be paired with USDT. Use the highest entry price. The stop loss price will be calculated as 0.5% below the entry price. Use the lowest take profit price given inside the double-quoted message and if none is provided then calculate take profit price as 2% above the entry price. Provide only the completed form, no other text.[Remember inside the double quotation mark 'cmp'= current market price, 'sl'= stop loss, 'tp'=take profit]
+ If the quoted text within double quotation mark is not a trading signal, respond with "Processing your question....". If it is a trading signal, extract the necessary information and fill out the form below. The symbol should be paired with USDT. Use the highest entry price. The stop loss price will be taken from the text inside the double quotation mark and if it is not given then calculate it as 0.5% below the entry price. Use the lowest take profit price given inside the double-quoted message and if none is provided then calculate take profit price as 2% above the entry price. Provide only the completed form, no other text.[Remember inside the double quotation mark 'cmp'= current market price, 'sl'= stop loss, 'tp'=take profit]
 
 
 Symbol:
