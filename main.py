@@ -8,7 +8,7 @@ from threading import Thread
 # API credentials for source chat
 SOURCE_API_ID = os.getenv('SOURCE_API_ID')
 SOURCE_API_HASH = os.getenv('SOURCE_API_HASH')
-SOURCE_CHAT_ID = -1002256615512 # Replace with the chat ID to listen to
+SOURCE_CHAT_ID = -1002256615512  # Replace with the chat ID to listen to
 SOURCE_PHONE_NUMBER = os.getenv('SOURCE_PHONE_NUMBER')  # Source phone number
 
 # API credentials for destination account
@@ -34,8 +34,14 @@ destination_client = TelegramClient(DESTINATION_SESSION_FILE, DESTINATION_API_ID
 # Flask application for receiving OTP via POST request
 app = Flask(__name__)
 
+@app.route('/')
+def home():
+    """Root route for health check."""
+    return "The bot is running. Use /receive_otp to send OTPs.", 200
+
 @app.route('/receive_otp', methods=['POST'])
 def receive_otp():
+    """Route to receive OTPs for login."""
     data = request.json
     account_type = data.get('account_type')  # 'source' or 'destination'
     otp = data.get('otp')
@@ -82,10 +88,8 @@ async def login_with_phone(client, phone_number, account_type):
 # Event handler for messages in the source chat
 @source_client.on(events.NewMessage(chats=SOURCE_CHAT_ID))
 async def forward_message(event):
-    # Extract the original message
     source_id_message = event.raw_text
 
-    # Custom message format with highlighted source message
     custom_message = f"""
 "{source_id_message}"
 
@@ -98,7 +102,6 @@ Stop Loss:
 Take Profit:
 """
 
-    # Send the formatted message to the bot
     async with destination_client:
         try:
             await destination_client.send_message(DESTINATION_BOT_USERNAME, custom_message)
@@ -110,19 +113,18 @@ Take Profit:
 async def main():
     print("Starting both clients...")
     
-    # Log in to the Telegram clients using the phone numbers
     await login_with_phone(source_client, SOURCE_PHONE_NUMBER, 'source')
     await login_with_phone(destination_client, DESTINATION_PHONE_NUMBER, 'destination')
     
-    # Start both clients
     await source_client.start()
     await destination_client.start()
     print("Bot is running... Waiting for messages...")
-    await handle_disconnection()  # Handle reconnections
+    await handle_disconnection()
 
 # Entry point - running within the existing event loop
 def run_flask():
-    app.run(host="0.0.0.0", port=5000)
+    port = int(os.environ.get('PORT', 5000))  # Use Render-assigned port or default to 5000
+    app.run(host="0.0.0.0", port=port)
 
 if __name__ == "__main__":
     # Start the Flask server in a separate thread
@@ -131,13 +133,11 @@ if __name__ == "__main__":
 
     # Loop to restart the script in case of error
     async def run_bot():
-        while True:  # Loop to restart the script on error
+        while True:
             try:
-                # Run the main function within the existing event loop
                 await main()
             except Exception as e:
                 print(f"Error occurred: {e}. Restarting the script...")
-                await asyncio.sleep(5)  # Optional sleep to prevent rapid restarts
+                await asyncio.sleep(5)
 
-    # Start the event loop to run the bot
     asyncio.run(run_bot())
