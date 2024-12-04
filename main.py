@@ -8,7 +8,7 @@ from threading import Thread
 # API credentials for source chat
 SOURCE_API_ID = os.getenv('SOURCE_API_ID')
 SOURCE_API_HASH = os.getenv('SOURCE_API_HASH')
-SOURCE_CHAT_ID = -1002256615512  # Replace with the chat ID to listen to
+SOURCE_CHAT_ID = -1001932769324  # Replace with the chat ID to listen to
 SOURCE_PHONE_NUMBER = os.getenv('SOURCE_PHONE_NUMBER')  # Source phone number
 
 # API credentials for destination account
@@ -93,7 +93,7 @@ async def forward_message(event):
     custom_message = f"""
 "{source_id_message}"
 
- If the quoted text within double quotation mark is not a trading signal, respond with "Processing your question....". If it is a trading signal, extract the necessary information and fill out the form below. The symbol should be paired with USDT. Use the highest entry price. The stop loss price will be taken from the text inside the double quotation mark and if it is not given then calculate it as 0.5% below the entry price. Use the lowest take profit price given inside the double-quoted message and if none is provided then calculate take profit price as 2% above the entry price. Provide only the completed form, no other text.[Remember inside the double quotation mark 'cmp'= current market price, 'sl'= stop loss, 'tp'=take profit]
+ If the quoted text within double quotation mark is not a trading signal or a trading signal for short/sell then respond with "Processing your question....". If it is a trading signal for long/buy then extract the necessary information and fill out the form below. The symbol should be paired with USDT without using '/'. Use the highest entry price. The stop loss price will be taken from the text inside the double quotation mark and if it is not given then calculate it as 0.5% below the entry price. Use the lowest take profit price given inside the double-quoted message and if none is provided then calculate take profit price as 2% above the entry price. Provide only the completed form, no other text.[Remember inside the double quotation mark 'cmp'= current market price, 'sl'= stop loss, 'tp'=take profit]
 
 
 Symbol:
