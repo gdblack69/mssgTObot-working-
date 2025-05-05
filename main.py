@@ -17,15 +17,17 @@ def install_missing_modules():
         ('gunicorn', '20.1.0'),
         ('werkzeug', '2.0.3')
     ]
+    needs_restart = False
     for module, version in required_modules:
         try:
             importlib.import_module(module)
         except ImportError:
             print(f"Installing {module}=={version}...")
             subprocess.check_call([sys.executable, '-m', 'pip', 'install', f'{module}=={version}'])
-    # Restart the app after installing modules
-    print("Dependencies installed, restarting...")
-    os.execv(sys.executable, [sys.executable] + sys.argv)
+            needs_restart = True
+    if needs_restart:
+        print("Dependencies installed, restarting...")
+        os.execv(sys.executable, [sys.executable] + sys.argv)
 
 # Check and install dependencies before proceeding
 install_missing_modules()
