@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: mssgtobot-working
+    name: mssgtobot-working-
     env: python
     plan: free
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt
