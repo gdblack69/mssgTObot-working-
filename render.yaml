@@ -3,7 +3,7 @@ services:
     name: mssgtobot-working
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     startCommand: gunicorn --threads 4 -b 0.0.0.0:$PORT main:app
     envVars:
       - key: PYTHON_VERSION
