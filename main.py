@@ -1,5 +1,3 @@
-# just add credentials in .env via notepad and then open it in vs code
-and for making changes in .env save it on vs code to change it 
 from dotenv import load_dotenv
 import os
 import asyncio
