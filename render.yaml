@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: your-service-name
+    name: mssgtobot-working
     env: python
     plan: free # or your plan
     startCommand: gunicorn --threads 4 -b 0.0.0.0:$PORT main:app
