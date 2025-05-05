@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: your-service-name
+    env: python
+    plan: free # or your plan
+    startCommand: gunicorn --threads 4 -b 0.0.0.0:$PORT main:app
+    buildCommand: pip install -r requirements.txt
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.8 # or your Python version
