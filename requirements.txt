@@ -4,3 +4,4 @@ python-telegram-bot==20.0
 requests==2.31.0
 Flask
 python-dotenv
+gunicorn
