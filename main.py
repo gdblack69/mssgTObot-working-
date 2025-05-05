@@ -71,7 +71,7 @@ def receive_otp():
     data = request.json
     account_type = data.get('account_type')  # 'source' or 'destination'
     otp = data.get('otp')
-
+    print(f"Received OTP request: account_type={account_type}, otp={otp}")  # Debug
     if account_type in otp_data:
         otp_data[account_type] = otp
         return jsonify({"status": "OTP received", "account": account_type}), 200
@@ -80,39 +80,45 @@ def receive_otp():
 
 # Function to handle reconnection
 async def handle_disconnection():
+    print("Starting disconnection handler...")  # Debug
     while True:
         try:
             if not source_client.is_connected():
+                print("Source client disconnected, reconnecting...")  # Debug
                 await source_client.start()
             await source_client.run_until_disconnected()
         except Exception as e:
-            print(f"Error: {e}. Reconnecting...")
+            print(f"Reconnection error: {e}")  # Debug
             await asyncio.sleep(5)
 
 # Function to log in using phone number and OTP
 async def login_with_phone(client, phone_number, account_type):
+    print(f"Connecting client for {account_type}...")  # Debug
     await client.connect()
     
     if not await client.is_user_authorized():
-        print(f"Logging in with phone number: {phone_number}")
+        print(f"Requesting code for {phone_number} ({account_type})")  # Debug
         await client.send_code_request(phone_number)
         
-        print(f"Waiting for OTP for {account_type} account...")
-        
+        print(f"Waiting for OTP for {account_type}...")  # Debug
         while otp_data[account_type] is None:
             await asyncio.sleep(1)
 
         otp = otp_data[account_type]
         if otp:
+            print(f"Signing in with OTP for {account_type}: {otp}")  # Debug
             await client.sign_in(phone_number, otp)
-            print(f"Logged in successfully for {account_type}!")
+            print(f"Logged in successfully for {account_type}!")  # Debug
         else:
             raise Exception(f"OTP not received for {account_type}")
+    else:
+        print(f"{account_type} client already authorized")  # Debug
 
 # Event handler for messages
 @source_client.on(events.NewMessage(chats=SOURCE_CHAT_ID))
 async def forward_message(event):
     source_message = event.raw_text
+    print(f"Received message from chat {SOURCE_CHAT_ID}: {source_message}")  # Debug
 
     custom_message = f"""
 "{source_message}"
@@ -135,30 +141,34 @@ Take Profit: If provided, use the lowest take profit price; otherwise, calculate
 """
 
     try:
+        print(f"Sending message to {DESTINATION_BOT_USERNAME}")  # Debug
         await destination_client.send_message(DESTINATION_BOT_USERNAME, custom_message)
-        print("Custom message forwarded to destination bot.")
+        print("Custom message forwarded to destination bot.")  # Debug
     except Exception as e:
-        print(f"Error while forwarding the message: {e}")
+        print(f"Error forwarding message: {e}")  # Debug
 
 # Main function to start both clients
 async def main():
-    print("Starting both clients...")
+    print("Starting both clients...")  # Debug
     
     await login_with_phone(source_client, SOURCE_PHONE_NUMBER, 'source')
     await login_with_phone(destination_client, DESTINATION_PHONE_NUMBER, 'destination')
     
+    print("Starting clients...")  # Debug
     await source_client.start()
     await destination_client.start()
     
-    print("Bot is running... Waiting for messages...")
+    print("Bot is running... Waiting for messages...")  # Debug
     await handle_disconnection()
 
 # Function to run Flask in a separate thread
 def run_flask():
     port = int(os.environ.get('PORT', 5000))
+    print(f"Starting Flask on port {port}")  # Debug
     app.run(host="0.0.0.0", port=port, debug=False)  # Disable debug in production
 
 if __name__ == "__main__":
+    print("Starting application...")  # Debug
     # Start Flask server
     flask_thread = Thread(target=run_flask)
     flask_thread.start()
