@@ -2,9 +2,29 @@ services:
   - type: web
     name: mssgtobot-working
     env: python
-    plan: free # or your plan
-    startCommand: gunicorn --threads 4 -b 0.0.0.0:$PORT main:app
+    plan: free
     buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --threads 4 -b 0.0.0.0:$PORT main:app
     envVars:
       - key: PYTHON_VERSION
-        value: 3.8 # or your Python version
+        value: 3.11
+      - key: SOURCE_API_ID
+        sync: false
+      - key: SOURCE_API_HASH
+        sync: false
+      - key: SOURCE_PHONE_NUMBER
+        sync: false
+      - key: SOURCE_CHAT_ID
+        sync: false
+      - key: DESTINATION_API_ID
+        sync: false
+      - key: DESTINATION_API_HASH
+        sync: false
+      - key: DESTINATION_PHONE_NUMBER
+        sync: false
+      - key: DESTINATION_BOT_USERNAME
+        sync: false
+      - key: SOURCE_SESSION_FILE
+        sync: false
+      - key: DESTINATION_SESSION_FILE
+        sync: false
