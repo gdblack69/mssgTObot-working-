@@ -1,9 +1,34 @@
-from dotenv import load_dotenv
+import sys
+import subprocess
+import importlib
 import os
+from dotenv import load_dotenv
 import asyncio
 from flask import Flask, request, jsonify
 from threading import Thread
 from telethon import TelegramClient, events
+
+# Function to check and install missing modules
+def install_missing_modules():
+    required_modules = [
+        ('flask', '2.0.1'),
+        ('python-dotenv', '0.19.0'),
+        ('telethon', '1.24.0'),
+        ('gunicorn', '20.1.0'),
+        ('werkzeug', '2.0.3')
+    ]
+    for module, version in required_modules:
+        try:
+            importlib.import_module(module)
+        except ImportError:
+            print(f"Installing {module}=={version}...")
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', f'{module}=={version}'])
+    # Restart the app after installing modules
+    print("Dependencies installed, restarting...")
+    os.execv(sys.executable, [sys.executable] + sys.argv)
+
+# Check and install dependencies before proceeding
+install_missing_modules()
 
 # Load environment variables from .env file
 load_dotenv()
