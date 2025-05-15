@@ -1,30 +1,10 @@
 services:
   - type: web
-    name: mssgtobot-working-
+    name: telegram-relay-bot
     env: python
     plan: free
-    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
-    startCommand: gunicorn --threads 4 -b 0.0.0.0:$PORT main:app
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn main:app
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11
-      - key: SOURCE_API_ID
-        sync: false
-      - key: SOURCE_API_HASH
-        sync: false
-      - key: SOURCE_PHONE_NUMBER
-        sync: false
-      - key: SOURCE_CHAT_ID
-        sync: false
-      - key: DESTINATION_API_ID
-        sync: false
-      - key: DESTINATION_API_HASH
-        sync: false
-      - key: DESTINATION_PHONE_NUMBER
-        sync: false
-      - key: DESTINATION_BOT_USERNAME
-        sync: false
-      - key: SOURCE_SESSION_FILE
-        sync: false
-      - key: DESTINATION_SESSION_FILE
-        sync: false
+      - key: PORT
+        value: 10000
