@@ -162,10 +162,9 @@ If it's a buy/long signal, extract the details and fill the form like this:
 
 Symbol: Use the coin name with 'USDT' (without '/').
 Price: Take the highest entry price.
-If it says 'buy at cmp', take the CMP given and add 10% as the price in the form.
-Stop Loss (SL): If given, use that.
+Stop Loss : If given, use that.
 If not given, calculate 1.88% below the entry price.
-Take Profit (TP): If given, use the lowest TP price.
+Take Profit : If given, use the lowest TP price.
 If not given, calculate 2% above the entry price.
 
 🔹 Output only the filled form, no extra text.
@@ -173,9 +172,6 @@ If not given, calculate 2% above the entry price.
 💡 Notes: 'cmp' = current market price
            'sl' = stop loss
            'tp' = take profit
-
-If the text says 'buy at cmp', use CMP for SL and TP as per message (or calculate if not given). But 
-always show the price in the form as 10% higher than CMP.
 """
     try:
         await destination_client.send_message(DESTINATION_BOT_USERNAME, custom_message)
