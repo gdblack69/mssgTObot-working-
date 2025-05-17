@@ -1,101 +1,206 @@
-from telethon import TelegramClient, events
-from flask import Flask, request, jsonify
-import asyncio
 import os
+import asyncio
+from flask import Flask, request, jsonify
+from telethon import TelegramClient, events
+from telethon.errors import FloodWaitError, SessionPasswordNeededError
 from threading import Thread
+from b2sdk.v2 import InMemoryAccountInfo, B2Api
 
-# --- Config ---
-SOURCE_API_ID = 26697231
-SOURCE_API_HASH = "35f2769c773534c6ebf24c9d0731703a"
-SOURCE_PHONE_NUMBER = "919598293175"
-SOURCE_CHAT_ID = -1002256615512
+# === CONFIG ===
+SOURCE_API_ID = os.environ.get('SOURCE_API_ID')
+SOURCE_API_HASH = os.environ.get('SOURCE_API_HASH')
+SOURCE_PHONE_NUMBER = os.environ.get('SOURCE_PHONE_NUMBER')
+SOURCE_CHAT_ID = os.environ.get('SOURCE_CHAT_ID')
 
-DESTINATION_API_ID = 14135677
-DESTINATION_API_HASH = "edbecdc187df07fddb10bcff89964a8e"
-DESTINATION_PHONE_NUMBER = "+917897293175"
-DESTINATION_BOT_USERNAME = "@gpt3_unlim_chatbot"
+DESTINATION_API_ID = os.environ.get('DESTINATION_API_ID')
+DESTINATION_API_HASH = os.environ.get('DESTINATION_API_HASH')
+DESTINATION_PHONE_NUMBER = os.environ.get('DESTINATION_PHONE_NUMBER')
+DESTINATION_BOT_USERNAME = os.environ.get('DESTINATION_BOT_USERNAME')
 
-SOURCE_SESSION_FILE = "source_session.session"
-DESTINATION_SESSION_FILE = "destination_session.session"
+SESSION_DIR = "/opt/render/project/src"
+SOURCE_SESSION_NAME = "source_session.session"
+DESTINATION_SESSION_NAME = "destination_session.session"
+SOURCE_SESSION_FILE = os.path.join(SESSION_DIR, SOURCE_SESSION_NAME)
+DESTINATION_SESSION_FILE = os.path.join(SESSION_DIR, DESTINATION_SESSION_NAME)
 
-otp_data = {
-    'source': None,
-    'destination': None
+B2_KEY_ID = os.environ.get('B2_KEY_ID')
+B2_APP_KEY = os.environ.get('B2_APP_KEY')
+B2_BUCKET_NAME = os.environ.get('B2_BUCKET_NAME')
+
+otp_data = {'source': None, 'destination': None}
+otp_request_sent = {'source': False, 'destination': False}
+
+# === B2 HELPERS ===
+def init_b2_api():
+    info = InMemoryAccountInfo()
+    b2_api = B2Api(info)
+    b2_api.authorize_account("production", B2_KEY_ID, B2_APP_KEY)
+    return b2_api
+
+def download_session_from_b2(session_name, local_path):
+    try:
+        b2_api = init_b2_api()
+        bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
+        file_info = bucket.get_file_info_by_name(session_name)
+        if file_info:
+            with open(local_path, "wb") as f:
+                bucket.download_file_by_name(session_name).save_to(f)
+            print(f"Downloaded {session_name} from B2.")
+    except Exception as e:
+        print(f"Warning: Could not download {session_name} from B2: {e}")
+
+def upload_session_to_b2(session_name, local_path):
+    try:
+        if not os.path.exists(local_path):
+            print(f"Warning: Local session file {local_path} not found.")
+            return
+        b2_api = init_b2_api()
+        bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
+        with open(local_path, "rb") as f:
+            bucket.upload_bytes(f.read(), session_name)
+        print(f"Uploaded {session_name} to B2.")
+    except Exception as e:
+        print(f"Error uploading {session_name} to B2: {e}")
+
+# === ENV VALIDATION ===
+required_vars = {
+    'SOURCE_API_ID': SOURCE_API_ID,
+    'SOURCE_API_HASH': SOURCE_API_HASH,
+    'SOURCE_PHONE_NUMBER': SOURCE_PHONE_NUMBER,
+    'SOURCE_CHAT_ID': SOURCE_CHAT_ID,
+    'DESTINATION_API_ID': DESTINATION_API_ID,
+    'DESTINATION_API_HASH': DESTINATION_API_HASH,
+    'DESTINATION_PHONE_NUMBER': DESTINATION_PHONE_NUMBER,
+    'DESTINATION_BOT_USERNAME': DESTINATION_BOT_USERNAME,
+    'B2_KEY_ID': B2_KEY_ID,
+    'B2_APP_KEY': B2_APP_KEY,
+    'B2_BUCKET_NAME': B2_BUCKET_NAME
 }
+missing_vars = [key for key, value in required_vars.items() if not value]
+if missing_vars:
+    raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
 
-# --- Telegram Clients ---
+try:
+    SOURCE_API_ID = int(SOURCE_API_ID)
+    SOURCE_CHAT_ID = int(SOURCE_CHAT_ID)
+    DESTINATION_API_ID = int(DESTINATION_API_ID)
+except ValueError as e:
+    raise ValueError("SOURCE_API_ID, SOURCE_CHAT_ID, DESTINATION_API_ID must be integers") from e
+
+# === TELEGRAM CLIENTS ===
+download_session_from_b2(SOURCE_SESSION_NAME, SOURCE_SESSION_FILE)
+download_session_from_b2(DESTINATION_SESSION_NAME, DESTINATION_SESSION_FILE)
+
 source_client = TelegramClient(SOURCE_SESSION_FILE, SOURCE_API_ID, SOURCE_API_HASH)
 destination_client = TelegramClient(DESTINATION_SESSION_FILE, DESTINATION_API_ID, DESTINATION_API_HASH)
 
-# --- Flask App ---
+# === FLASK APP ===
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "The bot is running. Use /receive_otp to send OTPs.", 200
+    return "Telegram Bot is running. Use /receive_otp to send OTPs."
 
 @app.route('/receive_otp', methods=['POST'])
 def receive_otp():
     data = request.json
     account_type = data.get('account_type')
     otp = data.get('otp')
+    if account_type not in otp_data:
+        return jsonify({"error": "Invalid account type. Must be 'source' or 'destination'."}), 400
+    otp_data[account_type] = otp
+    return jsonify({"status": "OTP received successfully", "account": account_type}), 200
 
-    if account_type in otp_data:
-        otp_data[account_type] = otp
-        return jsonify({"status": "OTP received", "account": account_type}), 200
-    else:
-        return jsonify({"error": "Invalid account type"}), 400
-
-# --- Functions ---
-async def login_with_phone(client, phone_number, account_type):
-    await client.connect()
-    if not await client.is_user_authorized():
-        await client.send_code_request(phone_number)
-        while otp_data[account_type] is None:
-            await asyncio.sleep(1)
-        await client.sign_in(phone_number, otp_data[account_type])
+async def login_with_phone(client, phone_number, account_type, session_name, session_file):
+    try:
+        await client.connect()
+        if not await client.is_user_authorized():
+            if not otp_request_sent[account_type]:
+                try:
+                    await client.send_code_request(phone_number)
+                    otp_request_sent[account_type] = True
+                    print(f"OTP sent to {phone_number} for {account_type}.")
+                except FloodWaitError as e:
+                    print(f"Too many requests for {account_type}, wait {e.seconds}s.")
+                    return False
+                except Exception as e:
+                    print(f"Error requesting OTP for {account_type}: {str(e)}")
+                    return False
+            while otp_data[account_type] is None:
+                await asyncio.sleep(1)
+            try:
+                await client.sign_in(phone_number, otp_data[account_type])
+                upload_session_to_b2(session_name, session_file)
+                print(f"Login successful for {account_type}.")
+                return True
+            except SessionPasswordNeededError:
+                print(f"2FA not supported for {account_type}.")
+                return False
+            except Exception as e:
+                print(f"Invalid OTP for {account_type}: {str(e)}")
+                otp_data[account_type] = None
+                return False
+        else:
+            print(f"{account_type.capitalize()} already authorized.")
+            return True
+    except Exception as e:
+        print(f"Login error for {account_type}: {str(e)}")
+        return False
 
 @source_client.on(events.NewMessage(chats=SOURCE_CHAT_ID))
 async def forward_message(event):
-    source_message = event.raw_text
+    message = event.raw_text
     custom_message = f"""
-"{source_message}"
+"{message}"
 
-If the text inside the double quotation marks is not a trading signal or indicates a short/sell, respond with:
+If the text inside double quotes is not a trading signal or says to short/sell, reply with:
 👉 "No it's not your call"
 
-If it is a long/buy trading signal, extract the necessary details and fill in the form below:
+If it's a buy/long signal, extract the details and fill the form like this:
 
-Symbol: Pair with USDT (without using /).
+Symbol: Use the coin name with 'USDT' (without '/').
+Price: Take the highest entry price.
+If it says 'buy at cmp', take the CMP given and add 10% as the price in the form.
+Stop Loss (SL): If given, use that.
+If not given, calculate 1.88% below the entry price.
+Take Profit (TP): If given, use the lowest TP price.
+If not given, calculate 2% above the entry price.
 
-Price: Use the highest entry price.
+🔹 Output only the filled form, no extra text.
 
-Stop Loss: If given inside the quotation marks, use it; otherwise, calculate it as 0.5% below the entry price.
+💡 Notes: 'cmp' = current market price
+           'sl' = stop loss
+           'tp' = take profit
 
-Take Profit: If provided, use the lowest take profit price; otherwise, calculate it as 2% above the entry price.
-
-🔹 Output only the completed form—no extra text.
+If the text says 'buy at cmp', use CMP for SL and TP as per message (or calculate if not given). But 
+always show the price in the form as 10% higher than CMP.
 """
     try:
         await destination_client.send_message(DESTINATION_BOT_USERNAME, custom_message)
+        print("Message forwarded to destination bot.")
     except Exception as e:
-        print(f"Error forwarding message: {e}")
+        print(f"Error forwarding message: {str(e)}")
 
-async def start_all():
-    await login_with_phone(source_client, SOURCE_PHONE_NUMBER, 'source')
-    await login_with_phone(destination_client, DESTINATION_PHONE_NUMBER, 'destination')
-    await destination_client.start()
+async def start_bot():
+    print("Starting Telegram bot...")
+    source_ok = await login_with_phone(source_client, SOURCE_PHONE_NUMBER, 'source', SOURCE_SESSION_NAME, SOURCE_SESSION_FILE)
+    if not source_ok:
+        print("Source login failed.")
+        return
+    dest_ok = await login_with_phone(destination_client, DESTINATION_PHONE_NUMBER, 'destination', DESTINATION_SESSION_NAME, DESTINATION_SESSION_FILE)
+    if not dest_ok:
+        print("Destination login failed.")
+        return
     await source_client.start()
+    await destination_client.start()
+    print("Both clients running.")
     await source_client.run_until_disconnected()
-
-def start_bot():
-    asyncio.run(start_all())
 
 def run_flask():
     port = int(os.environ.get('PORT', 5000))
+    print(f"Starting Flask on port {port}...")
     app.run(host="0.0.0.0", port=port)
 
-# --- Main ---
 if __name__ == "__main__":
     Thread(target=run_flask).start()
-    Thread(target=start_bot).start()
+    asyncio.run(start_bot())
