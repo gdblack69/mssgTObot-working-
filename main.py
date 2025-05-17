@@ -5,6 +5,10 @@ from telethon import TelegramClient, events
 from telethon.errors import FloodWaitError, SessionPasswordNeededError
 from threading import Thread
 from b2sdk.v2 import InMemoryAccountInfo, B2Api
+from dotenv import load_dotenv
+
+# === LOAD ENV ===
+load_dotenv()
 
 # === CONFIG ===
 SOURCE_API_ID = os.environ.get('SOURCE_API_ID')
@@ -17,9 +21,9 @@ DESTINATION_API_HASH = os.environ.get('DESTINATION_API_HASH')
 DESTINATION_PHONE_NUMBER = os.environ.get('DESTINATION_PHONE_NUMBER')
 DESTINATION_BOT_USERNAME = os.environ.get('DESTINATION_BOT_USERNAME')
 
-SESSION_DIR = "/opt/render/project/src"
-SOURCE_SESSION_NAME = "source_session.session"
-DESTINATION_SESSION_NAME = "destination_session.session"
+SESSION_DIR = os.environ.get('SESSION_DIR', ".")
+SOURCE_SESSION_NAME = os.environ.get('SOURCE_SESSION_NAME', "source_session.session")
+DESTINATION_SESSION_NAME = os.environ.get('DESTINATION_SESSION_NAME', "destination_session.session")
 SOURCE_SESSION_FILE = os.path.join(SESSION_DIR, SOURCE_SESSION_NAME)
 DESTINATION_SESSION_FILE = os.path.join(SESSION_DIR, DESTINATION_SESSION_NAME)
 
@@ -41,26 +45,24 @@ def download_session_from_b2(session_name, local_path):
     try:
         b2_api = init_b2_api()
         bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
-        file_info = bucket.get_file_info_by_name(session_name)
-        if file_info:
-            with open(local_path, "wb") as f:
-                bucket.download_file_by_name(session_name).save_to(f)
-            print(f"Downloaded {session_name} from B2.")
+        downloaded_file = bucket.download_file_by_name(session_name)
+        downloaded_file.save_to(local_path)
+        print(f"✅ Downloaded {session_name} from B2.")
     except Exception as e:
-        print(f"Warning: Could not download {session_name} from B2: {e}")
+        print(f"⚠️ Warning: Could not download {session_name} from B2: {e}")
 
 def upload_session_to_b2(session_name, local_path):
     try:
         if not os.path.exists(local_path):
-            print(f"Warning: Local session file {local_path} not found.")
+            print(f"⚠️ Warning: Local session file {local_path} not found.")
             return
         b2_api = init_b2_api()
         bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
         with open(local_path, "rb") as f:
             bucket.upload_bytes(f.read(), session_name)
-        print(f"Uploaded {session_name} to B2.")
+        print(f"✅ Uploaded {session_name} to B2.")
     except Exception as e:
-        print(f"Error uploading {session_name} to B2: {e}")
+        print(f"❌ Error uploading {session_name} to B2: {e}")
 
 # === ENV VALIDATION ===
 required_vars = {
@@ -119,32 +121,32 @@ async def login_with_phone(client, phone_number, account_type, session_name, ses
                 try:
                     await client.send_code_request(phone_number)
                     otp_request_sent[account_type] = True
-                    print(f"OTP sent to {phone_number} for {account_type}.")
+                    print(f"📨 OTP sent to {phone_number} for {account_type}.")
                 except FloodWaitError as e:
-                    print(f"Too many requests for {account_type}, wait {e.seconds}s.")
+                    print(f"⏳ Too many requests for {account_type}, wait {e.seconds}s.")
                     return False
                 except Exception as e:
-                    print(f"Error requesting OTP for {account_type}: {str(e)}")
+                    print(f"❌ Error requesting OTP for {account_type}: {str(e)}")
                     return False
             while otp_data[account_type] is None:
                 await asyncio.sleep(1)
             try:
                 await client.sign_in(phone_number, otp_data[account_type])
                 upload_session_to_b2(session_name, session_file)
-                print(f"Login successful for {account_type}.")
+                print(f"✅ Login successful for {account_type}.")
                 return True
             except SessionPasswordNeededError:
-                print(f"2FA not supported for {account_type}.")
+                print(f"🔒 2FA not supported for {account_type}.")
                 return False
             except Exception as e:
-                print(f"Invalid OTP for {account_type}: {str(e)}")
+                print(f"❌ Invalid OTP for {account_type}: {str(e)}")
                 otp_data[account_type] = None
                 return False
         else:
-            print(f"{account_type.capitalize()} already authorized.")
+            print(f"✅ {account_type.capitalize()} already authorized.")
             return True
     except Exception as e:
-        print(f"Login error for {account_type}: {str(e)}")
+        print(f"❌ Login error for {account_type}: {str(e)}")
         return False
 
 @source_client.on(events.NewMessage(chats=SOURCE_CHAT_ID))
@@ -177,28 +179,28 @@ always show the price in the form as 10% higher than CMP.
 """
     try:
         await destination_client.send_message(DESTINATION_BOT_USERNAME, custom_message)
-        print("Message forwarded to destination bot.")
+        print("✅ Message forwarded to destination bot.")
     except Exception as e:
-        print(f"Error forwarding message: {str(e)}")
+        print(f"❌ Error forwarding message: {str(e)}")
 
 async def start_bot():
-    print("Starting Telegram bot...")
+    print("🚀 Starting Telegram bot...")
     source_ok = await login_with_phone(source_client, SOURCE_PHONE_NUMBER, 'source', SOURCE_SESSION_NAME, SOURCE_SESSION_FILE)
     if not source_ok:
-        print("Source login failed.")
+        print("❌ Source login failed.")
         return
     dest_ok = await login_with_phone(destination_client, DESTINATION_PHONE_NUMBER, 'destination', DESTINATION_SESSION_NAME, DESTINATION_SESSION_FILE)
     if not dest_ok:
-        print("Destination login failed.")
+        print("❌ Destination login failed.")
         return
     await source_client.start()
     await destination_client.start()
-    print("Both clients running.")
+    print("✅ Both clients running.")
     await source_client.run_until_disconnected()
 
 def run_flask():
     port = int(os.environ.get('PORT', 5000))
-    print(f"Starting Flask on port {port}...")
+    print(f"🌐 Starting Flask on port {port}...")
     app.run(host="0.0.0.0", port=port)
 
 if __name__ == "__main__":
